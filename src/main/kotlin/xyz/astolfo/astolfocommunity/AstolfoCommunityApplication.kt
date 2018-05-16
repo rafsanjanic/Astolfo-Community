@@ -53,6 +53,7 @@ class AstolfoProperties {
     var osu_api_token = ""
     var weeb_token = ""
     var dialogflow_token = ""
+    var steam_api_key = ""
 }
 
 fun main(args: Array<String>) {

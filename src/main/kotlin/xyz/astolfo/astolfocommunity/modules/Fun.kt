@@ -2,6 +2,9 @@ package xyz.astolfo.astolfocommunity.modules
 
 import com.github.natanbc.weeb4j.image.HiddenMode
 import com.github.natanbc.weeb4j.image.NsfwFilter
+import com.github.salomonbrys.kotson.array
+import com.github.salomonbrys.kotson.get
+import com.google.gson.JsonObject
 import com.oopsjpeg.osu4j.OsuUser
 import com.oopsjpeg.osu4j.backend.EndpointUsers
 import com.oopsjpeg.osu4j.backend.Osu
@@ -12,7 +15,7 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 fun createFunModule() = module("Fun") {
-    command("game") {
+    command("isplaying") {
         action {
             val user = event.message.mentionedMembers.getOrNull(0)
             if (user == null) {
@@ -25,6 +28,55 @@ fun createFunModule() = module("Fun") {
                 return@action
             }
             messageAction(embed("${user.asMention} is playing `${game.name}`!")).queue()
+        }
+    }
+    command("steam") {
+        val steamPicture = "https://seeklogo.com/images/S/steam-logo-73274B19E3-seeklogo.com.png"
+        action {
+            messageAction(embed {
+                title("Astolfo Steam Integration")
+                description("**profile**  -  gets user data from the steam api")
+                thumbnail(steamPicture)
+            }).queue()
+        }
+        command("profile", "p", "user", "stats", "summary") {
+            action {
+                val url = "http://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${application.properties.steam_api_key}&steamids="
+                val uid = args.takeIf { it.isNotBlank() }?.let {
+                    val num = it.matches("-?\\d+(\\.\\d+)?".toRegex())
+                    if (!num) {
+                        messageAction("User ID's must be numerical!").queue()
+                        return@action
+                    }
+                    if (webJson<SteamUser>("$url$it")!!.response!!.get("players").array.size() == 0) {
+                        messageAction("Enter a valid User ID!").queue()
+                        return@action
+                    }
+                    it
+                }
+                if (args.isBlank()) {
+                    messageAction("Provide the 64bit id of the user you wish to search for!").queue()
+                    return@action
+                }
+                val user = SteamUser(webJson<SteamUser>("$url$uid")!!.response!!)
+                val status = when (user.state) {
+                    "0" -> "Offline"
+                    "1" -> "Online"
+                    "2" -> "Busy"
+                    "3" -> "Away"
+                    "4" -> "Snooze"
+                    "5" -> "Looking to Trade"
+                    "6" -> "Looking to Play"
+                    else -> "Unknown"
+                }
+                messageAction(embed {
+                    title("Astolfo Steam Profiles", user.profileUrl)
+                    description("\nProfile url: ${user.profileUrl}" +
+                            "\nDisplay Name: **${user.displayName}**" +
+                            "\nStatus: **$status**")
+                    thumbnail(user.avatar!!)
+                }).queue()
+            }
         }
     }
     command("osu") {
@@ -194,6 +246,19 @@ class Advice(val slip: AdviceSlip?) {
     inner class AdviceSlip(val advice: String?, val slip_id: String?)
 }
 
+class SteamUser(val response: JsonObject?) {
+    private fun getStuff(prop: String): String? = response!!.get("players")[0][prop].toString().trim('"')
+
+    // public values
+    val profileUrl = getStuff("profileurl")
+    val state = getStuff("personastate")
+    val avatar = getStuff("avatarfull")
+    val displayName = getStuff("personaname")
+
+    // private values
+    //val country = getStuff("loccountrycode") ?: "not set"
+    //val game = getStuff("gameextrainfo") ?: "none"
+}
 class Cat(val file: String?)
 class Neko(val neko: String?)
 class DadJoke(val id: String?, val status: Int?, var joke: String?)
