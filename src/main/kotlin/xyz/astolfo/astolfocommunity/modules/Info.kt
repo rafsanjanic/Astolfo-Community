@@ -48,7 +48,7 @@ fun createInfoModule() = module("Info") {
                 val mentionedUser = event.message.mentionedUsers.getOrNull(0) ?: event.message.author
                 title("Astolfo Profile Pictures", mentionedUser.avatarUrl)
                 description("${mentionedUser.asMention} Profile Picture!")
-                image(mentionedUser.avatarUrl)
+                image(mentionedUser.effectiveAvatarUrl)
             }).queue()
         }
     }
