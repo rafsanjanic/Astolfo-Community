@@ -44,12 +44,13 @@ fun createInfoModule() = module("Info") {
     }
     command("avatar", "pfp") {
         action {
-            messageAction(embed {
-                val mentionedUser = event.message.mentionedUsers.getOrNull(0) ?: event.message.author
-                title("Astolfo Profile Pictures", mentionedUser.avatarUrl)
-                description("${mentionedUser.asMention} Profile Picture!")
-                image(mentionedUser.effectiveAvatarUrl)
-            }).queue()
+            selectMember("Profile Selection", args){ selectedMember ->
+                messageAction(embed {
+                    title("Astolfo Profile Pictures", selectedMember.user.effectiveAvatarUrl)
+                    description("${selectedMember.asMention} Profile Picture!")
+                    image(selectedMember.user.effectiveAvatarUrl)
+                }).queue()
+            }
         }
     }
     command("links", "invite") {
