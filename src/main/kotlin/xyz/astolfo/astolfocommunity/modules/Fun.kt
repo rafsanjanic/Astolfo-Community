@@ -2,6 +2,7 @@ package xyz.astolfo.astolfocommunity.modules
 
 import com.github.natanbc.weeb4j.image.HiddenMode
 import com.github.natanbc.weeb4j.image.NsfwFilter
+import com.oopsjpeg.osu4j.OsuUser
 import com.oopsjpeg.osu4j.backend.EndpointUsers
 import com.oopsjpeg.osu4j.backend.Osu
 import net.dv8tion.jda.core.MessageBuilder
@@ -11,47 +12,70 @@ import java.util.*
 import java.util.concurrent.TimeUnit
 
 fun createFunModule() = module("Fun") {
+    command("game") {
+        action {
+            val user = event.message.mentionedMembers.getOrNull(0)
+            if (user == null) {
+                messageAction("Mention a user to see what they're playing!").queue()
+                return@action
+            }
+            val game = user.game
+            if (game == null) {
+                messageAction(embed("${user.asMention} is not playing anything right now!")).queue()
+                return@action
+            }
+            messageAction(embed("${user.asMention} is playing `${game.name}`!")).queue()
+        }
+    }
     command("osu") {
         action {
             messageAction(embed {
                 val osuPicture = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Osu%21Logo_%282015%29.png"
                 title("Astolfo Osu Integration")
-                description("**sig**  -  generates an osu signature of the user" +
+                description("**signature**  -  generates an osu signature of the user" +
                         "\n**profile**  -  gets user data from the osu api")
                 thumbnail(osuPicture)
             }).queue()
         }
-        command("sig", "s") {
+        command("signature", "sig", "s") {
             action {
-                val osuUsername = args
+                if (args.isBlank()) {
+                    messageAction("Provide the name of the user you wish to search for!").queue()
+                    return@action
+                }
                 messageAction(embed {
-                    val url = "http://lemmmy.pw/osusig/sig.php?colour=purple&uname=$osuUsername&pp=1"
+                    val url = "http://lemmmy.pw/osusig/sig.php?colour=purple&uname=$args&pp=1"
                     title("Astolfo Osu Signature", url)
-                    description("$osuUsername\'s Osu Signature!")
+                    description("$args\'s Osu Signature!")
                     image(url)
                 }).queue()
             }
         }
         command("profile", "p", "user", "stats") {
             action {
-                messageAction(embed {
-                    val osu = Osu.getAPI(application.properties.osu_api_token)
-                    fun getUser(args: String) = osu.users.query(EndpointUsers.ArgumentsBuilder(args).build())
-                    try {
-                        val user = getUser(args)
-                        val topPlayBeatmap = user.getTopScores(1).get()[0].beatmap.get()
-                        title("Osu stats for ${user.username}", user.url.toString())
-                        description("\nProfile url: ${user.url}" +
-                                "\nCountry: **${user.country}**" +
-                                "\nGlobal Rank: **#${user.rank} (${user.pp}pp)**" +
-                                "\nAccuracy: **${user.accuracy}%**" +
-                                "\nPlay Count: **${user.playCount} (Lv${user.level})**" +
-                                "\nTop play: **$topPlayBeatmap** ${topPlayBeatmap.url}")
+                if (args.isBlank()) {
+                    messageAction("Provide the name of the user you wish the search for!").queue()
+                    return@action
+                }
+                val osu = Osu.getAPI(application.properties.osu_api_token)
+                val user: OsuUser
+                try {
+                    user = osu.users.query(EndpointUsers.ArgumentsBuilder(args).build())
+                } catch (e: Exception) {
+                    messageAction(":mag: I looked far and wide, but couldn't find user `$args`!" +
+                            "\n If they're a real person, Try doing `?osu sig $args` instead.").queue()
+                    return@action
+                }
 
-                    } catch (e: Exception) {
-                        messageAction(":mag: I looked for `$args`, but couldn't find them!" +
-                                "\n Try using the sig command instead.").queue()
-                    }
+                val topPlayBeatmap = user.getTopScores(1).get()[0].beatmap.get()
+                messageAction(embed {
+                    title("Osu stats for ${user.username}", user.url.toString())
+                    description("\nProfile url: ${user.url}" +
+                            "\nCountry: **${user.country}**" +
+                            "\nGlobal Rank: **#${user.rank} (${user.pp}pp)**" +
+                            "\nAccuracy: **${user.accuracy}%**" +
+                            "\nPlay Count: **${user.playCount} (Lv${user.level})**" +
+                            "\nTop play: **$topPlayBeatmap** ${topPlayBeatmap.url}")
                 }).queue()
             }
         }
@@ -87,12 +111,15 @@ fun createFunModule() = module("Fun") {
                 if (int == null) {
                     messageAction("The die max value must be a whole number!").queue()
                     return@action
+                } else if (int <= 1) {
+                    messageAction("The die max value must be a positive number greater than 1!").queue()
+                    return@action
                 }
                 int
             } ?: 6
 
-            messageAction(":game_die: Rolling a dice for you...").queue {
-                it.editMessage(MessageBuilder().append("Dice landed on **${random.nextInt(max - 1) + 1}**").build()).queueAfter(1, TimeUnit.SECONDS)
+            messageAction(":game_die: Rolling a die for you...").queue {
+                it.editMessage(MessageBuilder().append("Die landed on **${random.nextInt(max - 1) + 1}**").build()).queueAfter(1, TimeUnit.SECONDS)
             }
         }
     }
